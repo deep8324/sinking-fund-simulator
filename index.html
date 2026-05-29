@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Sinking Fund Simulator</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans p-6">
+
+    <div class="max-w-5xl mx-auto bg-white p-8 rounded-2xl shadow-xl">
+        <div class="border-b pb-4 mb-6">
+            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Infrastructure Sinking Fund Calculator</h1>
+            <p class="text-sm text-gray-500 mt-1">Adjust the sliders to see if our community can survive future machinery replacements.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            
+            <div class="bg-gray-100 p-6 rounded-xl border border-gray-200">
+                <h2 class="text-lg font-bold text-gray-700 mb-4">1. Adjust Community Choices</h2>
+                
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-gray-600 mb-2 justify-between flex">
+                        <span>Proposed Annual Fee (per sq ft):</span>
+                        <span class="text-indigo-600 font-bold" id="feeValue">₹9.68</span>
+                    </label>
+                    <input type="range" id="feeSlider" min="5" max="20" step="0.5" value="9.68" class="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-600 mb-2 justify-between flex">
+                        <span>Expected Annual Inflation:</span>
+                        <span class="text-indigo-600 font-bold" id="inflationValue">7%</span>
+                    </label>
+                    <input type="range" id="inflationSlider" min="4" max="12" step="0.5" value="7" class="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                </div>
+            </div>
+
+            <div id="verdictBox" class="p-6 rounded-xl flex flex-col justify-between text-white transition-all duration-300">
+                <div>
+                    <h2 class="text-lg font-bold uppercase tracking-wider mb-2">2. The Financial Verdict</h2>
+                    <p class="text-4xl font-black id" id="verdictStatus">SAFE</p>
+                </div>
+                <div class="mt-4 border-t border-white/20 pt-4">
+                    <p class="text-sm opacity-90" id="verdictDescription">The current collection rate keeps us safely operational over the next 15 years.</p>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="mb-8">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">3. 15-Year Sinking Fund Cash Flow Projection</h2>
+            <div class="bg-white p-4 rounded-xl border border-gray-200 h-80">
+                <canvas id="fundChart"></canvas>
+            </div>
+        </div>
+
+        <div>
+            <h2 class="text-xl font-bold text-gray-800 mb-4">4. The Cost Drivers (What We Own)</h2>
+            <div class="overflow-x-auto rounded-xl border border-gray-200">
+                <table class="min-w-full bg-white text-sm">
+                    <thead class="bg-gray-100 text-gray-700 font-semibold uppercase text-xs tracking-wider">
+                        <tr>
+                            <th class="py-3 px-4 text-left">Asset / Machinery</th>
+                            <th class="py-3 px-4 text-center">Lifespan</th>
+                            <th class="py-3 px-4 text-right">Current Replacement Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 text-gray-600">
+                        <tr>
+                            <td class="py-3 px-4 font-medium text-gray-900">Wilo STP & WTP Pumps (Expensive Imports)</td>
+                            <td class="py-3 px-4 text-center">Every 5 Years</td>
+                            <td class="py-3 px-4 text-right font-mono">₹10,000,000</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-medium text-gray-900">Transformers (500 kVA + 250 kVA)</td>
+                            <td class="py-3 px-4 text-center">Every 20 Years</td>
+                            <td class="py-3 px-4 text-right font-mono">₹2,500,000</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-medium text-gray-900">Silent DG Set (320 kVA Overhaul)</td>
+                            <td class="py-3 px-4 text-center">Every 12 Years</td>
+                            <td class="py-3 px-4 text-right font-mono">₹1,500,000</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-4 font-medium text-gray-900">Concrete Roads & Periphery Maintenance (8 Acres)</td>
+                            <td class="py-3 px-4 text-center">Every 15 Years</td>
+                            <td class="py-3 px-4 text-right font-mono">₹15,000,000</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Community Metrics
+        const totalSqFt = 450000; // Example community total buildup area
+        const initialSinkingFund = 5000000; // Starting with ₹50 Lakhs
+
+        // Hardcoded simplifed asset schedule
+        const machineryExpenses = [
+            { name: "Wilo Pumps", cycle: 5, baseCost: 1000000 },
+            { name: "DG Overhaul", cycle: 12, baseCost: 1500000 },
+            { name: "Roads & Periphery", cycle: 15, baseCost: 15000000 },
+            { name: "Transformers", cycle: 20, baseCost: 2500000 }
+        ];
+
+        // UI Elements
+        const feeSlider = document.getElementById('feeSlider');
+        const feeValue = document.getElementById('feeValue');
+        const inflationSlider = document.getElementById('inflationSlider');
+        const inflationValue = document.getElementById('inflationValue');
+        const verdictStatus = document.getElementById('verdictStatus');
+        const verdictDescription = document.getElementById('verdictDescription');
+        const verdictBox = document.getElementById('verdictBox');
+
+        let fundChart;
+
+        function runProjection() {
+            const proposedFee = parseFloat(feeSlider.value);
+            const inflation = parseFloat(inflationSlider.value) / 100;
+
+            feeValue.innerText = `₹${proposedFee}`;
+            inflationValue.innerText = `${(inflation * 100).toFixed(1)}%`;
+
+            let currentBalance = initialSinkingFund;
+            let years = [];
+            let balances = [];
+            let bankruptcyYear = null;
+
+            for (let year = 1; year <= 15; year++) {
+                years.push(`Year ${year}`);
+                
+                // Income added
+                let annualInflow = proposedFee * totalSqFt * 12;
+                currentBalance += annualInflow;
+
+                // Expenses deducted based on lifecycle
+                machineryExpenses.forEach(item => {
+                    if (year % item.cycle === 0) {
+                        let inflatedCost = item.baseCost * Math.pow((1 + inflation), year);
+                        currentBalance -= inflatedCost;
+                    }
+                });
+
+                balances.push(Math.round(currentBalance));
+
+                if (currentBalance < 0 && bankruptcyYear === null) {
+                    bankruptcyYear = year;
+                }
+            }
+
+            updateUI(bankruptcyYear, balances[14], proposedFee);
+            updateChart(years, balances);
+        }
+
+        function updateUI(bankruptcyYear, finalBalance, fee) {
+            if (bankruptcyYear !== null) {
+                verdictStatus.innerText = "BANKRUPT";
+                verdictDescription.innerText = `At ₹${fee}/sq.ft., the community fund runs dry in Year ${bankruptcyYear} due to compounding heavy machinery failure costs. We will need an emergency penalty levy from residents.`;
+                verdictBox.className = "p-6 rounded-xl flex flex-col justify-between text-white transition-all duration-300 bg-red-600 shadow-lg shadow-red-200";
+            } else if (finalBalance < 15000000) {
+                verdictStatus.innerText = "HIGH RISK";
+                verdictDescription.innerText = `Fund survives 15 years, but the reserves drop dangerously low (below ₹1.5 Cr). Any surprise asset failure will plunge us into deficit.`;
+                verdictBox.className = "p-6 rounded-xl flex flex-col justify-between text-white transition-all duration-300 bg-amber-500 shadow-lg shadow-amber-100";
+            } else {
+                verdictStatus.innerText = "SAFE & SECURE";
+                verdictDescription.innerText = `Excellent. This rate ensures the community has enough liquidity to replace high-end Wilo pumps, overhauls, and roads comfortably without emergency collections.`;
+                verdictBox.className = "p-6 rounded-xl flex flex-col justify-between text-white transition-all duration-300 bg-emerald-600 shadow-lg shadow-emerald-100";
+            }
+        }
+
+        function updateChart(labels, data) {
+            if (fundChart) { fundChart.destroy(); }
+            
+            const ctx = document.getElementById('fundChart').getContext('2d');
+            fundChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Sinking Fund Balance (₹)',
+                        data: data,
+                        borderColor: '#4f46e5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        fill: true,
+                        tension: 0.2,
+                        pointBackgroundColor: data.map(val => val < 0 ? '#dc2626' : '#4f46e5')
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            ticks: { callback: value => '₹' + (value / 10000000).toFixed(1) + ' Cr' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Listen for user changes
+        feeSlider.addEventListener('input', runProjection);
+        inflationSlider.addEventListener('input', runProjection);
+
+        // Run on load
+        runProjection();
+    </script>
+</body>
+</html>
